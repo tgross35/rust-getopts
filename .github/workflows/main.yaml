@@ -1,0 +1,45 @@
+name: CI
+on: [push, pull_request]
+
+env:
+  RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
+
+jobs:
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os: [windows-2025, ubuntu-24.04, macos-15]
+        rust: [stable, nightly]
+        include:
+          - os: ubuntu-24.04
+            rust: beta
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+
+  doc_fmt:
+    name: Document and check formatting
+    steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        run: rustup update nightly && rustup default nightly
+      - run: cargo doc
+      - run: cargo fmt --check
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        run: |
+          msrv="$(cargo metadata --format-version=1 |
+            jq -r '.packages[] | select(.name == "getopts").rust_version'
+          )"
+          rustup update "$msrv" && rustup default "$msrv"
+      - run: |
+          cargo update -p unicode-width --precise 0.1.8
+          cargo check
